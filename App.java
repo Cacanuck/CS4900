@@ -48,7 +48,7 @@ public class App extends Application {
         inputColors2.add(Color.web("#541f00")); // New Brown
         inputColors2.add(Color.web("#92D050")); // New Green
         inputColors2.add(Color.web("#ffff00")); // New Yellow
-        inputColors2.add(Color.web("#00f1ff")); // New Blue
+        inputColors2.add(Color.web("#00f1fasdasdf")); // New Blue
         inputColors2.add(Color.web("#5a238e")); // New Purple
 
         // Initialize color names
