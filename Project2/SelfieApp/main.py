@@ -1,4 +1,4 @@
-#To run: In Terminal, go to CS4900/Project2 folder, and type in `python main.py`
+#To run: In Terminal, go to CS4900/Project2/SelfieApp , and type in `python3 main.py`
 
 import face_recognition
 import cv2
