@@ -1,3 +1,5 @@
+# This code patch was used to create the TTS files. It has been commented out as it is no longer needed for operation.
+
 # from gtts import gTTS
 # import pygame
 
