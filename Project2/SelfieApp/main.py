@@ -5,6 +5,17 @@ import face_recognition
 import cv2
 import numpy as np
 
+from gtts import gTTS
+import pygame
+
+myText = 'Move Head Right'
+language = 'en'
+myobj = gTTS(text=myText, lang=language, slow=False)
+myobj.save("moveHeadRight.mp3")
+pygame.mixer.int()
+pygame.mixer.music.load("moveHeadRight.mp3")
+pygame.mixer.music.play()
+
 video_capture = cv2.VideoCapture(0)
 
 face_classifier = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
