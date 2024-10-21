@@ -8,28 +8,49 @@ import numpy as np
 from gtts import gTTS
 import pygame
 
+# Initialize Video Capture
 video_capture = cv2.VideoCapture(0)
 
+# Initialize Face Classifier
 face_classifier = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
+# Face Classifier / Bounding Box code
 def detect_bounding_box(vid):
     gray_image = cv2.cvtColor(vid, cv2.COLOR_BGR2GRAY)
     faces = face_classifier.detectMultiScale(gray_image, 1.1, 5, minSize=(40, 4))
     for (x, y, w, h) in faces:
         cv2.rectangle(vid, (x, y), (x + w, y + h), (0, 255, 0), 4)
     return faces
-    
+
+# Quadrants Function
+def quadrants(video_frame):
+    height, width, _ = video_frame.shape
+    centerX = width // 2
+    centerY = height // 2
+    cv2.line(video_frame, (centerX, 0), (centerX, height), (0, 0, 255), 2)
+    cv2.line(video_frame, (0, centerY), (width, centerY), (0, 0, 255), 2)
+    return video_frame
+
+# Runs the Video Capture
 while True:
 
+    # This controls if video capture is active
     result, video_frame = video_capture.read()  
     if result is False:
         break  
 
+    # Draw quadrants on screen
+    video_frame = quadrants(video_frame)
+    cv2.imshow('Quadrants', video_frame) # This line should be deleted once everything works
+
+    # Activeates bounding box while video capture is on
     faces = detect_bounding_box(video_frame)
     cv2.imshow("", video_frame)
 
+    # Press 'q' to end the video capture
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
+# Release Resources
 video_capture.release()
 cv2.destroyAllWindows()
