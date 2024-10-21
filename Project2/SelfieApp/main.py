@@ -8,12 +8,12 @@ import numpy as np
 from gtts import gTTS
 import pygame
 
-myText = 'Move Head Right'
+myText = 'Keep Still'
 language = 'en'
 myobj = gTTS(text=myText, lang=language, slow=False)
-myobj.save("moveHeadRight.mp3")
+myobj.save("keepStill.mp3")
 pygame.mixer.int()
-pygame.mixer.music.load("moveHeadRight.mp3")
+pygame.mixer.music.load("keepStill")
 pygame.mixer.music.play()
 
 video_capture = cv2.VideoCapture(0)
