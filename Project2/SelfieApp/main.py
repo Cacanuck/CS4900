@@ -27,8 +27,16 @@ def quadrants(video_frame):
     height, width, _ = video_frame.shape
     centerX = width // 2
     centerY = height // 2
-    cv2.line(video_frame, (centerX, 0), (centerX, height), (0, 0, 255), 2)
-    cv2.line(video_frame, (0, centerY), (width, centerY), (0, 0, 255), 2)
+    X1 = width // 3
+    Y1 = height // 4
+    X2 = width - X1
+    Y2 = height - Y1
+    cv2.line(video_frame, (centerX, 0), (centerX, height), (0, 0, 255), 2) # Vertical Line
+    cv2.line(video_frame, (0, centerY), (width, centerY), (0, 0, 255), 2) # Horizontal Line
+    cv2.line(video_frame, (X1, Y1), (X1, Y2), (0, 255, 0), 2) # Center Left Line
+    cv2.line(video_frame, (X1, Y1), (X2, Y1), (0, 255, 0), 2) # Center Top Line
+    cv2.line(video_frame, (X2, Y1), (X2, Y2), (0, 255, 0), 2) # Center Right Line
+    cv2.line(video_frame, (X1, Y2), (X2, Y2), (0, 255, 0), 2) # Center Bottom Line
     return video_frame
 
 # Runs the Video Capture
