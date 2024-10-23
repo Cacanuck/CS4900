@@ -19,39 +19,18 @@ def detect_bounding_box(vid):
     gray_image = cv2.cvtColor(vid, cv2.COLOR_BGR2GRAY)
     faces = face_classifier.detectMultiScale(gray_image, 1.1, 5, minSize=(40, 4))
     
-    # Added for quadrant detection
-    height, width, _ = video_frame.shape
-    X1 = width // 3
-    Y1 = height // 4
-    X2 = width - X1
-    Y2 = height - Y1
-    
     for (x, y, w, h) in faces:
         cv2.rectangle(vid, (x, y), (x + w, y + h), (0, 255, 0), 4)
-        
-        # Added for quadrant detection
-        faceCenterX = x
-        faceCenterY = y
-        quadrant = ""
-        
-        # Box detects what quadran its in
-        if faceCenterX < width // 2 and faceCenterY < height // 2:
-            quadrant = "Top Left"
-        elif faceCenterX < width // 2 and faceCenterY > height // 2:
-            quadrant = "Bottom Left"
-        elif faceCenterX > width // 2 and faceCenterY < height // 2:
-            quadrant = "Top Right"
-        elif faceCenterX > width // 2 and faceCenterY > height // 2:
-            quadrant = "Bottom Right"
-        else:
-            quadrant = "Center"
+
+        #Detect 4 Corners
+        quadrant = detect4Corners(x, y, vid.shape[1], vid.shape[0])
                 
         # Prints Quadrant
         cv2.putText(vid, f"Quadrant: {quadrant}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         
     return faces
 
-# Quadrants Function
+# Draw Quadrants Function
 def quadrants(video_frame):
     height, width, _ = video_frame.shape
     centerX = width // 2
@@ -68,6 +47,22 @@ def quadrants(video_frame):
     cv2.line(video_frame, (X1, Y2), (X2, Y2), (255, 0, 0), 2) # Center Bottom Line
     return video_frame
 
+# Detect which corner quadrant bounding box is in
+def detect4Corners(faceCenterX, faceCenterY, width, height):
+    
+    # Box detects what quadran its in
+        if faceCenterX < width // 2 and faceCenterY < height // 2:
+            return "Top Left"
+        elif faceCenterX < width // 2 and faceCenterY > height // 2:
+            return "Bottom Left"
+        elif faceCenterX > width // 2 and faceCenterY < height // 2:
+            return "Top Right"
+        elif faceCenterX > width // 2 and faceCenterY > height // 2:
+            return "Bottom Right"
+        else:
+            return "Center"
+
+
 # Runs the Video Capture
 while True:
 
@@ -78,7 +73,6 @@ while True:
 
     # Draw quadrants on screen
     video_frame = quadrants(video_frame)
-    cv2.imshow('Quadrants', video_frame) # This line should be deleted once everything works
 
     # Activeates bounding box while video capture is on
     faces = detect_bounding_box(video_frame)
