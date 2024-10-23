@@ -18,8 +18,37 @@ face_classifier = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_fro
 def detect_bounding_box(vid):
     gray_image = cv2.cvtColor(vid, cv2.COLOR_BGR2GRAY)
     faces = face_classifier.detectMultiScale(gray_image, 1.1, 5, minSize=(40, 4))
+    
+    # Added for quadrant detection
+    height, width, _ = video_frame.shape
+    X1 = width // 3
+    Y1 = height // 4
+    X2 = width - X1
+    Y2 = height - Y1
+    
     for (x, y, w, h) in faces:
         cv2.rectangle(vid, (x, y), (x + w, y + h), (0, 255, 0), 4)
+        
+        # Added for quadrant detection
+        faceCenterX = x
+        faceCenterY = y
+        quadrant = ""
+        
+        # Box detects what quadran its in
+        if faceCenterX < width // 2 and faceCenterY < height // 2:
+            quadrant = "Top Left"
+        elif faceCenterX < width // 2 and faceCenterY > height // 2:
+            quadrant = "Bottom Left"
+        elif faceCenterX > width // 2 and faceCenterY < height // 2:
+            quadrant = "Top Right"
+        elif faceCenterX > width // 2 and faceCenterY > height // 2:
+            quadrant = "Bottom Right"
+        else:
+            quadrant = "Center"
+                
+        # Prints Quadrant
+        cv2.putText(vid, f"Quadrant: {quadrant}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        
     return faces
 
 # Quadrants Function
