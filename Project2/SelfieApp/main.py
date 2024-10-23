@@ -24,6 +24,7 @@ def detect_bounding_box(vid):
 
         #Detect 4 Corners
         quadrant = detect4Corners(x, y, vid.shape[1], vid.shape[0])
+        quadrant = detectCenterBox(x, y, vid.shape[1], vid.shape[0])
                 
         # Prints Quadrant
         cv2.putText(vid, f"Quadrant: {quadrant}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
@@ -62,6 +63,17 @@ def detect4Corners(faceCenterX, faceCenterY, width, height):
         else:
             return "Center"
 
+# Detect Center Box
+def detectCenterBox(faceCenterX, faceCenterY, width, height):
+    X1 = width // 3
+    Y1 = height // 4
+    X2 = width - X1
+    Y2 = height - Y1
+    
+    if faceCenterX > X1 and faceCenterX < X2 and faceCenterY > Y1 and faceCenterY < Y2:
+        return "Center"
+    else:
+        return "Not Centered"
 
 # Runs the Video Capture
 while True:
