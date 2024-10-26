@@ -1,5 +1,4 @@
-#To run: In Terminal, go to CS4900/Project2/SelfieApp , and type in `python3 object_detection.py`. To quit, press q.
-#Authors: Trevor and Luke
+
 
 import cv2
 from ultralytics import YOLO
@@ -19,6 +18,24 @@ def getColours(cls_num):
     (cls_num // len(base_colors)) % 256 for i in range(3)]
     return tuple(color)
 
+# Function to draw quadrants and center box
+def draw_quadrants(frame):
+    height, width, _ = frame.shape
+    centerX = width // 2
+    centerY = height // 2
+    X1 = width // 3
+    Y1 = height // 4
+    X2 = width - X1
+    Y2 = height - Y1
+
+    # Draw central lines
+    cv2.line(frame, (centerX, 0), (centerX, height), (0, 0, 255), 2)  # Vertical Line
+    cv2.line(frame, (0, centerY), (width, centerY), (0, 0, 255), 2)  # Horizontal Line
+
+    # Draw center box
+    cv2.rectangle(frame, (X1, Y1), (X2, Y2), (255, 0, 0), 2)  # Center Box
+
+    return frame
 
 while True:
     ret, frame = videoCap.read()
@@ -26,6 +43,8 @@ while True:
         continue
     results = yolo.track(frame, stream=True)
 
+    # Draw the quadrants and center box
+    frame = draw_quadrants(frame)
 
     for result in results:
         # get the classes names
