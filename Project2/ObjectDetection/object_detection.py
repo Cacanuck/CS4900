@@ -2,13 +2,55 @@ import cv2
 from ultralytics import YOLO
 
 from gtts import gTTS
+import pygame
 import os
+
+import speech_recognition as sr
 
 # Load the model
 yolo = YOLO('yolov8s.pt')
 
 # Load the video capture
 videoCap = cv2.VideoCapture(0)
+
+pygame.mixer.init()
+
+def play_select_object():
+    pygame.mixer.music.load("selectObject.mp3")
+    pygame.mixer.music.play()
+
+def play_select_quadrant():
+    pygame.mixer.music.load("selectQuadrant.mp3")
+    pygame.mixer.music.play()
+
+def recognize_object():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Please say the object you want to find.")
+        audio = recognizer.listen(source)
+
+        try:
+            item = recognizer.recognize_google(audio)
+            print(f"You said:", item)
+            return item
+        except sr.UnknownValueError:
+            print("Google Speech Recognition could not understand audio")
+        except sr.RequestError as e:
+            print(f"Could not request results; {e}")
+
+def recognize_quadrant():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Please say the quadrant you wish the item to be in.")
+        audio = recognizer.listen(source)
+
+        try:
+            quadrant = recognizer.recognize_google(audio)
+            print(f"You said:", quadrant)
+        except sr.UnknownValueError:
+            print("Google Speech Recognition could not understand audio")
+        except sr.RequestError as e:
+            print(f"Could not request results; {e}")
 
 # Function to get class colors
 def getColours(cls_num):
@@ -61,53 +103,67 @@ def get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, width, height):
     
     return "Unknown"
 
-while True:
-    ret, frame = videoCap.read()
-    if not ret:
-        continue
-    results = yolo.track(frame, stream=True)
+def check_for_object(target_item):
+    while True:
+        ret, frame = videoCap.read()
+        if not ret:
+            continue
+        
+        results = yolo.track(frame, stream=True)
 
-    # Draw the quadrants and center box
-    X1, Y1, X2, Y2, frame = draw_quadrants(frame)
+        # Draw the quadrants and center box
+        X1, Y1, X2, Y2, frame = draw_quadrants(frame)
+        found = False  # Flag to check if the object was found
+        for result in results:
+            classes_names = result.names
 
-    for result in results:
-        # Get the class names
-        classes_names = result.names
+            for box in result.boxes:
+                # Check if confidence is greater than 40 percent
+                if box.conf[0] > 0.4:
+                    # Get coordinates
+                    [x1, y1, x2, y2] = box.xyxy[0]
+                    # Convert to int
+                    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-        # Iterate over each box
-        for box in result.boxes:
-            # Check if confidence is greater than 40 percent
-            if box.conf[0] > 0.4:
-                # Get coordinates
-                [x1, y1, x2, y2] = box.xyxy[0]
-                # Convert to int
-                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                    # Get the class
+                    cls = int(box.cls[0])
 
-                # Get the class
-                cls = int(box.cls[0])
+                    # Get the class name
+                    class_name = classes_names[cls]
 
-                # Get the class name
-                class_name = classes_names[cls]
+                    # Get the respective color
+                    colour = getColours(cls)
 
-                # Get the respective color
-                colour = getColours(cls)
+                    # Draw the rectangle
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), colour, 2)
 
-                # Draw the rectangle
-                cv2.rectangle(frame, (x1, y1), (x2, y2), colour, 2)
+                    # Get the region the object is in and display it
+                    region = get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, frame.shape[1], frame.shape[0])
+                    cv2.putText(frame, region, (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
 
-                # Put the class name and confidence on the image
-                cv2.putText(frame, f'{classes_names[cls]} {box.conf[0]:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, colour, 2)
+                    # If the class name matches the target item
+                    if target_item in class_name.lower():
+                        print(f"Found {class_name}!")
+                        cv2.putText(frame, f"Found: {class_name}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        found = True
+                        break
+            if found:
+                break
+        
+        # Show the image
+        cv2.imshow('frame', frame)
 
-                # Get the region the object is in and display it
-                region = get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, frame.shape[1], frame.shape[0])
-                cv2.putText(frame, region, (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
-                
-    # Show the image
-    cv2.imshow('frame', frame)
+        # Break the loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-    # Break the loop if 'q' is pressed
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+play_select_object()  # Play the initial object selection audio
+target_item = recognize_object()  # Get the target item from the user
+if target_item:
+    check_for_object(target_item)  # Start object detection to find the item
+else:
+    print("No item recognized.")
 
 # Release the video capture and destroy all windows
 videoCap.release()
