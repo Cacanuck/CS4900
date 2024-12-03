@@ -1,11 +1,10 @@
 import cv2
 from ultralytics import YOLO
-
 from gtts import gTTS
 import pygame
 import os
-
 import speech_recognition as sr
+import time
 
 # Load the model
 yolo = YOLO('yolov8s.pt')
@@ -13,8 +12,15 @@ yolo = YOLO('yolov8s.pt')
 # Load the video capture
 videoCap = cv2.VideoCapture(0)
 
+# load the mixer for TTS
 pygame.mixer.init()
 
+# initialize global variables
+current_quadrant = None
+object_in_right_place = False
+last_checked_time = time.time()
+
+# TTS sound functions
 def play_select_object():
     pygame.mixer.music.load("selectObject.mp3")
     pygame.mixer.music.play()
@@ -23,6 +29,43 @@ def play_select_quadrant():
     pygame.mixer.music.load("selectQuadrant.mp3")
     pygame.mixer.music.play()
 
+def play_move_up():
+    pygame.mixer.music.load("moveObjectUp.mp3")
+    pygame.mixer.music.play()
+
+def play_move_down():
+    pygame.mixer.music.load("moveObjectDown.mp3")
+    pygame.mixer.music.play()
+
+def play_move_left():
+    pygame.mixer.music.load("moveObjectLeft.mp3")
+    pygame.mixer.music.play()
+
+def play_move_right():
+    pygame.mixer.music.load("moveObjectRight.mp3")
+    pygame.mixer.music.play()
+
+def play_moveUpRight():
+    pygame.mixer.music.load("moveUpRight.mp3")
+    pygame.mixer.music.play()
+
+def play_moveUpLeft():
+    pygame.mixer.music.load("moveUpLeft.mp3")
+    pygame.mixer.music.play()
+
+def play_moveDownRight():
+    pygame.mixer.music.load("moveDownRight.mp3")
+    pygame.mixer.music.play()
+
+def play_moveDownLeft():
+    pygame.mixer.music.load("moveDownLeft.mp3")
+    pygame.mixer.music.play()
+
+def play_object_in_proper_quadrant():
+    pygame.mixer.music.load("objectInProperQuadrant.mp3")
+    pygame.mixer.music.play()
+
+# get an object as input from the user
 def recognize_object():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
@@ -38,6 +81,7 @@ def recognize_object():
         except sr.RequestError as e:
             print(f"Could not request results; {e}")
 
+# get the target quadrant from the user
 def recognize_quadrant():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
@@ -47,6 +91,8 @@ def recognize_quadrant():
         try:
             quadrant = recognizer.recognize_google(audio)
             print(f"You said:", quadrant)
+            quadrant = quadrant.strip().lower()
+            return quadrant
         except sr.UnknownValueError:
             print("Google Speech Recognition could not understand audio")
         except sr.RequestError as e:
@@ -82,28 +128,27 @@ def draw_quadrants(frame):
 
 # Function to determine the quadrant or center of the object
 def get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, width, height):
-    # Get the center of the bounding box
     obj_center_x = (x1 + x2) // 2
     obj_center_y = (y1 + y2) // 2
 
-    # If the object is within the center box, return "Center"
     if X1 <= obj_center_x <= X2 and Y1 <= obj_center_y <= Y2:
-        return "Center"
+        return "center"
 
-    # Define the quadrants based on the center of the frame
     centerX, centerY = width // 2, height // 2
     if x1 <= centerX and y1 <= centerY:
-        return "Top-left"
+        return "top left"
     elif x1 > centerX and y1 <= centerY:
-        return "Top-right"
+        return "top right"
     elif x1 <= centerX and y1 > centerY:
-        return "Bottom-left"
+        return "bottom left"
     elif x1 > centerX and y1 > centerY:
-        return "Bottom-right"
+        return "bottom right"
     
     return "Unknown"
 
-def check_for_object(target_item):
+# function to find the object in the frame and execute the rest of the code if it
+def check_for_object(target_item, target_quadrant):
+    global current_quadrant, object_in_right_place, last_checked_time
     while True:
         ret, frame = videoCap.read()
         if not ret:
@@ -139,29 +184,112 @@ def check_for_object(target_item):
 
                     # Get the region the object is in and display it
                     region = get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, frame.shape[1], frame.shape[0])
-                    cv2.putText(frame, region, (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
+
+                    current_quadrant = region
 
                     # If the class name matches the target item
                     if target_item in class_name.lower():
                         print(f"Found {class_name}!")
-                        cv2.putText(frame, f"Found: {class_name}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        cv2.putText(frame, f"{class_name}: {region}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         found = True
                         break
             if found:
                 break
-        
-        # Show the image
+
+        # check every 5 seconds if object is in the correct quadrant
+        if time.time() - last_checked_time > 5:
+            if current_quadrant == target_quadrant:
+                play_object_in_proper_quadrant()
+                object_in_right_place = True
+            else:
+                move_to_quadrant(current_quadrant, target_quadrant)
+            last_checked_time = time.time()  # Reset the timer
+
         cv2.imshow('frame', frame)
 
         # Break the loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-play_select_object()  # Play the initial object selection audio
-target_item = recognize_object()  # Get the target item from the user
+# give directions to move the item
+def move_to_quadrant(current_quadrant, target_quadrant):
+    print(f"Target quadrant: {target_quadrant}")  # Debug line
+    if current_quadrant == target_quadrant:
+        print("The object is already in the target quadrant.")
+        return
+    
+    # determine directions
+    if target_quadrant == "top left":
+        if current_quadrant == "top right":
+            play_move_left()
+        elif current_quadrant == "bottom left":
+            play_move_up()
+        elif current_quadrant == "bottom right":
+            play_moveUpLeft()
+        elif current_quadrant == "center":
+            play_moveUpLeft()
+        else:
+            print("Unknown quadrant combination.")
+    
+    elif target_quadrant == "top right":
+        if current_quadrant == "top left":
+            play_move_right()
+        elif current_quadrant == "bottom left":
+            play_moveUpRight()
+        elif current_quadrant == "bottom right":
+            play_move_up()
+        elif current_quadrant == "center":
+            play_moveUpRight()
+        else:
+            print("Unable to complete action")
+    
+    elif target_quadrant == "bottom left":
+        if current_quadrant == "top left":
+            play_move_down()
+        elif current_quadrant == "top right":
+            play_moveDownLeft()
+        elif current_quadrant == "bottom right":
+            play_move_left()
+        elif current_quadrant == "center":
+            play_moveDownLeft()
+        else:
+            print("Unable to complete action")
+    
+    elif target_quadrant == "bottom right":
+        if current_quadrant == "top left":
+            play_moveDownRight()
+        elif current_quadrant == "top right":
+            play_move_down()
+        elif current_quadrant == "bottom left":
+            play_move_right()
+        elif current_quadrant == "center":
+            play_moveDownRight()
+        else:
+            print("Unable to complete action")
+    
+    elif target_quadrant == "center":
+        if current_quadrant == "top left":
+            play_moveDownRight()
+        elif current_quadrant == "top right":
+            play_moveDownLeft()
+        elif current_quadrant == "bottom left":
+            play_moveUpRight()
+        elif current_quadrant == "bottom right":
+            play_moveUpLeft()
+    
+    else:
+        print("Invalid target quadrant.")
+
+# get the target item from the user
+play_select_object()
+target_item = recognize_object()
+
+play_select_quadrant()
+target_quadrant = recognize_quadrant()
+
 if target_item:
-    check_for_object(target_item)  # Start object detection to find the item
+    check_for_object(target_item, target_quadrant)  # Start object detection to find the item
 else:
     print("No item recognized.")
 
