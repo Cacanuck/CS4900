@@ -4,6 +4,7 @@
 import face_recognition
 import cv2
 import numpy as np
+import speech_recognition as sr
 
 from gtts import gTTS
 import pygame
@@ -22,12 +23,19 @@ def detect_bounding_box(vid):
     for (x, y, w, h) in faces:
         cv2.rectangle(vid, (x, y), (x + w, y + h), (0, 255, 0), 4)
 
+        # Calculate Face Center
+        faceCenterX = x + w // 2
+        faceCenterY = y + h // 2
+        
         #Detect 4 Corners
         quadrant = detect4Corners(x, y, vid.shape[1], vid.shape[0])
-        quadrant = detectCenterBox(x, y, vid.shape[1], vid.shape[0])
+        center = detectCenterBox(x, y, vid.shape[1], vid.shape[0])
+        
+        #Combine Quadrant and Center
+        combined = f"{center}, {quadrant}" if quadrant != "None" else center
                 
-        # Prints Quadrant
-        cv2.putText(vid, f"Quadrant: {quadrant}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        # Prints Face Position
+        cv2.putText(vid, f"Position: {combined}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         
     return faces
 
@@ -61,7 +69,7 @@ def detect4Corners(faceCenterX, faceCenterY, width, height):
         elif faceCenterX > width // 2 and faceCenterY > height // 2:
             return "Bottom Right"
         else:
-            return "Center"
+            return "None"
 
 # Detect Center Box
 def detectCenterBox(faceCenterX, faceCenterY, width, height):
@@ -74,10 +82,47 @@ def detectCenterBox(faceCenterX, faceCenterY, width, height):
         return "Center"
     else:
         return "Not Centered"
-
+    
+# Get User Speech
+def userInput():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        try:
+            
+            # Compensate for Background Noise
+            recognizer.adjust_for_ambient_noise(source)
+            
+            # Get Input
+            inputAudio = recognizer.listen(source)
+            
+            # Google Speech Recognition
+            inputCommand = recognizer.recognize_google(inputAudio)
+            return inputCommand.lower()
+        
+        except sr.UnknownValueError:
+            # Play an error message could not understand audio
+        except sr.RequestError:
+            # Play speech recognition service error
+        return None
+    
+# Take Screenshot
+def screenshot(video_frame):
+    screenshotPath = "screenshot.jpg"
+    cv2.imwrite(screenshotPath, video_frame)
+    return screenshotPath
+    
 # Runs the Video Capture
 while True:
 
+    # User Command to Take Picture
+    input = userInput()
+    if input:
+        if "take picture" in input:
+            screenShot = video_frame.copy()
+            screenShot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2RGB)
+            screenshot(screenShot)
+            continue
+        
     # This controls if video capture is active
     result, video_frame = video_capture.read()  
     if result is False:
