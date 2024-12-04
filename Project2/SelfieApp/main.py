@@ -15,6 +15,9 @@ video_capture = cv2.VideoCapture(0)
 # Initialize Face Classifier
 face_classifier = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
+# Initialize Audio Mixer
+pygame.mixer.init()
+
 # Face Classifier / Bounding Box code
 def detect_bounding_box(vid):
     gray_image = cv2.cvtColor(vid, cv2.COLOR_BGR2GRAY)
@@ -96,11 +99,9 @@ def userInput():
             return inputCommand.lower()
         
         except sr.UnknownValueError:
-            # Play an error message could not understand audio
-            print("Sorry, I could not understand the audio.")
+            playAudio("notUnderstand.mp3")
         except sr.RequestError:
-            # Play speech recognition service error
-            print("Sorry, I could not understand the audio.")
+            playAudio("serviceError.mp3")
         return None
     
 # Take Screenshot
@@ -108,18 +109,80 @@ def screenshot(video_frame):
     screenshotPath = "screenshot.jpg"
     cv2.imwrite(screenshotPath, video_frame)
     return screenshotPath
+
+# Play an Audio File
+def playAudio(file):
+    pygame.mixer.music.load(file)
+    pygame.mixer.music.play()
+    while pygame.mixer.music.get_busy():
+        continue
+    
+# Guide the User to the Correct Location
+def guide(target, frame, faces):
+    for (x, y, w, h) in faces:
+        faceCenterX = x + w // 2
+        faceCenterY = y + h // 2
+        height, width, _ = frame.shape
+        
+        # If User Wants Center
+        if target == "center":
+            if width // 3 < faceCenterX < width - width // 3 and height // 4 < faceCenterY < height - height // 4:
+                playAudio("keepStil.mp3")
+                return True
+            else:
+                if faceCenterX < width // 3:
+                    playAudio("moveHeadRight.mp3")
+                elif faceCenterX > width - width // 3:
+                    playAudio("moveHeadLeft.mp3")
+                if faceCenterY < height // 4:
+                    playAudio("moveHeadDown.mp3")
+                elif faceCenterY > height - height // 4:
+                    playAudio("moveHeadUp.mp3")
+    
+        # If User Wants A Quadrant
+        else:
+            if target == "top left":
+                if faceCenterX < width // 2 and faceCenterY < height // 2:
+                    playAudio("keepStill.mp3")
+                    return True
+                else:
+                    if faceCenterX >= width // 2:
+                        playAudio("moveHeadLeft.mp3")
+                    if faceCenterY >= height // 2:
+                        playAudio("moveHeadUp.mp3")
+            elif target == "top right":
+                if faceCenterX > width //2 and faceCenterY < height // 2:
+                    playAudio("keepStill.mp3")
+                    return True
+                else:
+                    if faceCenterX <= width // 2:
+                        playAudio("moveHeadRight.mp3")
+                    if faceCenterY >= height // 2:
+                        playAudio("moveHeadUp.mp3")
+            elif target == "bottom left":
+                if faceCenterX < width // 2 and faceCenterY > height // 2:
+                    playAudio("keepStill.mp3")
+                    return True
+                else:
+                    if faceCenterX >= width // 2:
+                        playAudio("moveHeadLeft.mp3")
+                    if faceCenterY <= height // 2:
+                        playAudio("moveHeadDown.mp3")
+            elif target == "bottom right":
+                if faceCenterX > width // 2 and faceCenterY > height // 2:
+                    playAudio("keepStill.mp3")
+                    return True
+                else:
+                    if faceCenterX <= width // 2:
+                        playAudio("moveHeadRight.mp3")
+                    if faceCenterY <= height // 2:
+                        playAudio("moveHeadDown.mp3")
+                        
+    return False
+                
     
 # Runs the Video Capture
 while True:
-
-    # User Command to Take Picture
-    input = userInput()
-    if input:
-        if "take picture" in input:
-            screenShot = video_frame.copy()
-            screenShot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2RGB)
-            screenshot(screenShot)
-            continue
         
     # This controls if video capture is active
     result, video_frame = video_capture.read()  
@@ -132,6 +195,33 @@ while True:
     # Activeates bounding box while video capture is on
     faces = detect_bounding_box(video_frame)
     cv2.imshow("", video_frame)
+        
+    # Start Prompt
+    playAudio("prompt.mp3")
+    selection = userInput()
+        
+    if selection in ["center", "quadrant"]:
+        while True:
+    
+            # Main Action
+            if selection == "center":
+                position = guide("center", video_frame, faces)
+            elif selection == "top left":
+                position = guide("top left", video_frame, faces)
+            elif selection == "top right":
+                position = guide("top right", video_frame, faces)
+            elif selection == "bottom left":
+                position = guide("bottom left", video_frame, faces)
+            elif selection == "bottom right":
+                position = guide("bottom right", video_frame, faces)
+            
+            # Prompt User to Take Picture
+            if position:
+                playAudio("picturePrompt.mp3")
+                confirmation = userInput()
+                if confirmation == "take picture":
+                    screenshot(video_frame)
+                    break
 
     # Press 'q' to end the video capture
     if cv2.waitKey(1) & 0xFF == ord("q"):
