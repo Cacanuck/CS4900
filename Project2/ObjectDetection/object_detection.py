@@ -1,3 +1,7 @@
+# object_detection.py
+# Authors: Trevor and Luke
+
+# import classes
 import cv2
 from ultralytics import YOLO
 from gtts import gTTS
@@ -5,11 +9,12 @@ import pygame
 import os
 import speech_recognition as sr
 import time
+import threading
 
-# Load the model
+# load the model
 yolo = YOLO('yolov8s.pt')
 
-# Load the video capture
+# load the video capture
 videoCap = cv2.VideoCapture(0)
 
 # load the mixer for TTS
@@ -18,8 +23,8 @@ pygame.mixer.init()
 # initialize global variables
 current_quadrant = None
 object_in_right_place = False
-last_checked_time = time.time()
-pic_start_time = time.time()
+check_time = time.time()
+proper_place_audio = False
 
 # TTS sound functions
 def play_select_object():
@@ -71,6 +76,7 @@ def play_pictureTaken():
     pygame.mixer.music.play()
 
 # get an object as input from the user
+# code from geeksforgeeks speech to text guide
 def recognize_object():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
@@ -87,6 +93,7 @@ def recognize_object():
             print(f"Could not request results; {e}")
 
 # get the target quadrant from the user
+# code from geeksforgeeks speech to text guide
 def recognize_quadrant():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
@@ -103,7 +110,8 @@ def recognize_quadrant():
         except sr.RequestError as e:
             print(f"Could not request results; {e}")
 
-# Function to get class colors
+# function to get class colors
+# code from geeksforgeeks object detection with YOLO guide
 def getColours(cls_num):
     base_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
     color_index = cls_num % len(base_colors)
@@ -112,7 +120,8 @@ def getColours(cls_num):
     (cls_num // len(base_colors)) % 256 for i in range(3)]
     return tuple(color)
 
-# Function to draw quadrants and center box
+# function to draw quadrants and center box
+# code from geeksforgeeks object detection with YOLO guide
 def draw_quadrants(frame):
     height, width, _ = frame.shape
     centerX = width // 2
@@ -122,16 +131,16 @@ def draw_quadrants(frame):
     X2 = width - X1
     Y2 = height - Y1
 
-    # Draw central lines
+    # draw central lines
     cv2.line(frame, (centerX, 0), (centerX, height), (0, 0, 255), 2)  # Vertical Line
     cv2.line(frame, (0, centerY), (width, centerY), (0, 0, 255), 2)  # Horizontal Line
 
-    # Draw center box
+    # draw center box
     cv2.rectangle(frame, (X1, Y1), (X2, Y2), (255, 0, 0), 2)  # Center Box
 
     return X1, Y1, X2, Y2, frame
 
-# Function to determine the quadrant or center of the object
+# function to determine the quadrant or center of the object
 def get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, width, height):
     obj_center_x = (x1 + x2) // 2
     obj_center_y = (y1 + y2) // 2
@@ -153,7 +162,7 @@ def get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, width, height):
 
 # function to find the object in the frame and execute the rest of the code if it
 def check_for_object(target_item, target_quadrant):
-    global current_quadrant, object_in_right_place, last_checked_time, pic_start_time
+    global current_quadrant, object_in_right_place, check_time
     while True:
         ret, frame = videoCap.read()
         if not ret:
@@ -161,38 +170,39 @@ def check_for_object(target_item, target_quadrant):
         
         results = yolo.track(frame, stream=True)
 
-        # Draw the quadrants and center box
+        # draw the quadrants and center box
+        # includes code from geeksforgeeks YOLO object detection
         X1, Y1, X2, Y2, frame = draw_quadrants(frame)
         found = False  # Flag to check if the object was found
         for result in results:
             classes_names = result.names
 
             for box in result.boxes:
-                # Check if confidence is greater than 40 percent
+                # check if confidence is greater than 40 percent
                 if box.conf[0] > 0.4:
-                    # Get coordinates
+                    # get coordinates
                     [x1, y1, x2, y2] = box.xyxy[0]
-                    # Convert to int
+                    # convert to int
                     x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-                    # Get the class
+                    # get the class
                     cls = int(box.cls[0])
 
-                    # Get the class name
+                    # get the class name
                     class_name = classes_names[cls]
 
-                    # Get the respective color
+                    # get the respective color
                     colour = getColours(cls)
 
-                    # Draw the rectangle
+                    # draw the rectangle
                     cv2.rectangle(frame, (x1, y1), (x2, y2), colour, 2)
 
-                    # Get the region the object is in and display it
+                    # get the region the object is in and display it
                     region = get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, frame.shape[1], frame.shape[0])
 
                     current_quadrant = region
 
-                    # If the class name matches the target item
+                    # if the class name matches the target item
                     if target_item in class_name.lower():
                         print(f"Found {class_name}!")
                         cv2.putText(frame, f"{class_name}: {region}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -203,36 +213,25 @@ def check_for_object(target_item, target_quadrant):
                 break
 
         # check every 5 seconds if object is in the correct quadrant
-        if time.time() - last_checked_time > 5:
-            if current_quadrant == target_quadrant:
-                object_in_right_place = True
+        # includes code from geeksforgeeks time.time() guide and Timer Objects in Python guide
+        if time.time() - check_time > 5:
+            check_time = time.time()
+            move_to_quadrant(current_quadrant, target_quadrant)
+
+            if current_quadrant == target_quadrant and not object_in_right_place:
+                print("Object is in the correct quadrant!")
                 play_object_in_proper_quadrant()
-
-                # start the timer for taking a picture if it's not already started
-                if pic_start_time is None:
-                    pic_start_time = time.time()
-
-                # wait for 5 seconds before taking the picture
-                if time.time() - pic_start_time >= 5:
-                    picture_name = f"picture_{int(time.time())}.jpg"
-                    cv2.imwrite(picture_name, frame)  # Take and save the picture
-                    play_pictureTaken()  # Play sound after taking the picture
-                    pic_start_time = None  # Reset pic_start_time to None after the picture is taken
-
-            else:
-                move_to_quadrant(current_quadrant, target_quadrant)
-
-            last_checked_time = time.time()  # Reset the timer
+                object_in_right_place = True
+                threading.Timer(8, take_picture, [frame]).start()  
 
         cv2.imshow('frame', frame)
 
-        # Break the loop if 'q' is pressed
+        # break the loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
 # give directions to move the item
 def move_to_quadrant(current_quadrant, target_quadrant):
-    print(f"Target quadrant: {target_quadrant}")  # Debug line
     if current_quadrant == target_quadrant:
         print("The object is already in the target quadrant.")
         return
@@ -299,18 +298,25 @@ def move_to_quadrant(current_quadrant, target_quadrant):
     else:
         print("Invalid target quadrant.")
 
+# take the picture
+def take_picture(frame):
+    cv2.imwrite("my_picture.jpg", frame)
+    play_pictureTaken()
+
 # get the target item from the user
 play_select_object()
 target_item = recognize_object()
 
+# get the target quadrant from the user
 play_select_quadrant()
 target_quadrant = recognize_quadrant()
 
+# find the object and take the picture
 if target_item:
     check_for_object(target_item, target_quadrant)  # Start object detection to find the item
 else:
     print("No item recognized.")
 
-# Release the video capture and destroy all windows
+# release the video capture and destroy all windows
 videoCap.release()
 cv2.destroyAllWindows()
