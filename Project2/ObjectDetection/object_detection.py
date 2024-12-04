@@ -24,7 +24,7 @@ pygame.mixer.init()
 current_quadrant = None
 object_in_right_place = False
 check_time = time.time()
-proper_place_audio = False
+picture_taken = False
 
 # TTS sound functions
 def play_select_object():
@@ -162,7 +162,7 @@ def get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, width, height):
 
 # function to find the object in the frame and execute the rest of the code if it
 def check_for_object(target_item, target_quadrant):
-    global current_quadrant, object_in_right_place, check_time
+    global current_quadrant, object_in_right_place, check_time, picture_taken
     while True:
         ret, frame = videoCap.read()
         if not ret:
@@ -222,7 +222,12 @@ def check_for_object(target_item, target_quadrant):
                 print("Object is in the correct quadrant!")
                 play_object_in_proper_quadrant()
                 object_in_right_place = True
-                threading.Timer(8, take_picture, [frame]).start()  
+                start_time = time.time()
+
+        if object_in_right_place:
+            if time.time() - start_time >= 8 and not picture_taken:
+                take_picture(frame)
+                picture_taken = True
 
         cv2.imshow('frame', frame)
 
