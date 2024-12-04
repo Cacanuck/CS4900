@@ -19,6 +19,7 @@ pygame.mixer.init()
 current_quadrant = None
 object_in_right_place = False
 last_checked_time = time.time()
+pic_start_time = time.time()
 
 # TTS sound functions
 def play_select_object():
@@ -63,6 +64,10 @@ def play_moveDownLeft():
 
 def play_object_in_proper_quadrant():
     pygame.mixer.music.load("objectInProperQuadrant.mp3")
+    pygame.mixer.music.play()
+
+def play_pictureTaken():
+    pygame.mixer.music.load("pictureTaken.mp3")
     pygame.mixer.music.play()
 
 # get an object as input from the user
@@ -148,7 +153,7 @@ def get_object_region(x1, y1, x2, y2, X1, Y1, X2, Y2, width, height):
 
 # function to find the object in the frame and execute the rest of the code if it
 def check_for_object(target_item, target_quadrant):
-    global current_quadrant, object_in_right_place, last_checked_time
+    global current_quadrant, object_in_right_place, last_checked_time, pic_start_time
     while True:
         ret, frame = videoCap.read()
         if not ret:
@@ -200,10 +205,23 @@ def check_for_object(target_item, target_quadrant):
         # check every 5 seconds if object is in the correct quadrant
         if time.time() - last_checked_time > 5:
             if current_quadrant == target_quadrant:
-                play_object_in_proper_quadrant()
                 object_in_right_place = True
+                play_object_in_proper_quadrant()
+
+                # start the timer for taking a picture if it's not already started
+                if pic_start_time is None:
+                    pic_start_time = time.time()
+
+                # wait for 5 seconds before taking the picture
+                if time.time() - pic_start_time >= 5:
+                    picture_name = f"picture_{int(time.time())}.jpg"
+                    cv2.imwrite(picture_name, frame)  # Take and save the picture
+                    play_pictureTaken()  # Play sound after taking the picture
+                    pic_start_time = None  # Reset pic_start_time to None after the picture is taken
+
             else:
                 move_to_quadrant(current_quadrant, target_quadrant)
+
             last_checked_time = time.time()  # Reset the timer
 
         cv2.imshow('frame', frame)
