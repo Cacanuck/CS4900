@@ -22,10 +22,6 @@ def detect_bounding_box(vid):
     
     for (x, y, w, h) in faces:
         cv2.rectangle(vid, (x, y), (x + w, y + h), (0, 255, 0), 4)
-
-        # Calculate Face Center
-        faceCenterX = x + w // 2
-        faceCenterY = y + h // 2
         
         #Detect 4 Corners
         quadrant = detect4Corners(x, y, vid.shape[1], vid.shape[0])
@@ -101,8 +97,10 @@ def userInput():
         
         except sr.UnknownValueError:
             # Play an error message could not understand audio
+            print("Sorry, I could not understand the audio.")
         except sr.RequestError:
             # Play speech recognition service error
+            print("Sorry, I could not understand the audio.")
         return None
     
 # Take Screenshot
