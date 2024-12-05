@@ -5,6 +5,8 @@ import face_recognition
 import cv2
 import numpy as np
 import speech_recognition as sr
+import threading
+import time
 
 from gtts import gTTS
 import pygame
@@ -23,6 +25,8 @@ def detect_bounding_box(vid):
     gray_image = cv2.cvtColor(vid, cv2.COLOR_BGR2GRAY)
     faces = face_classifier.detectMultiScale(gray_image, 1.1, 5, minSize=(40, 4))
     
+    selection = userInput()     
+
     for (x, y, w, h) in faces:
         cv2.rectangle(vid, (x, y), (x + w, y + h), (0, 255, 0), 4)
         
@@ -32,9 +36,18 @@ def detect_bounding_box(vid):
         
         #Combine Quadrant and Center
         combined = f"{center}, {quadrant}" if quadrant != "None" else center
-                
+        
         # Prints Face Position
         cv2.putText(vid, f"Position: {combined}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        if selection in ["center", "top left", "top right", "bottom left", "bottom right"]:
+            position = guide(selection, vid, x,y,w,h)
+            
+            # Prompt User to Take Picture
+            if position:
+                playAudio("picturePrompt.mp3")
+                confirmation = userInput()
+                if confirmation == "take picture":
+                    screenshot(video_frame)
         
     return faces
 
@@ -58,7 +71,7 @@ def quadrants(video_frame):
 # Detect which corner quadrant bounding box is in
 def detect4Corners(faceCenterX, faceCenterY, width, height):
     
-    # Box detects what quadran its in
+    # Box detects what quadrant its in
         if faceCenterX < width // 2 and faceCenterY < height // 2:
             return "Top Left"
         elif faceCenterX < width // 2 and faceCenterY > height // 2:
@@ -83,16 +96,14 @@ def detectCenterBox(faceCenterX, faceCenterY, width, height):
         return "Not Centered"
     
 # Get User Speech
-def userInput():
+def userInput(): #Lag Source
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
+        
+        # Get Input
+        inputAudio = recognizer.listen(source)
+        
         try:
-            
-            # Compensate for Background Noise
-            recognizer.adjust_for_ambient_noise(source)
-            
-            # Get Input
-            inputAudio = recognizer.listen(source)
             
             # Google Speech Recognition
             inputCommand = recognizer.recognize_google(inputAudio)
@@ -100,9 +111,9 @@ def userInput():
         
         except sr.UnknownValueError:
             playAudio("notUnderstand.mp3")
-        except sr.RequestError:
+            time.sleep(5)
+        except sr.RequestError as e:
             playAudio("serviceError.mp3")
-        return None
     
 # Take Screenshot
 def screenshot(video_frame):
@@ -112,74 +123,77 @@ def screenshot(video_frame):
 
 # Play an Audio File
 def playAudio(file):
-    pygame.mixer.music.load(file)
-    pygame.mixer.music.play()
-    while pygame.mixer.music.get_busy():
-        continue
+    def play():
+        pygame.mixer.music.load(file)
+        pygame.mixer.music.play()
+        
+    threading.Thread(target=play).start()
     
 # Guide the User to the Correct Location
-def guide(target, frame, faces):
-    for (x, y, w, h) in faces:
-        faceCenterX = x + w // 2
-        faceCenterY = y + h // 2
-        height, width, _ = frame.shape
+def guide(target, frame, x,y,w,h):
+    faceCenterX = x + w // 2
+    faceCenterY = y + h // 2
+    height, width, _ = frame.shape
         
-        # If User Wants Center
-        if target == "center":
-            if width // 3 < faceCenterX < width - width // 3 and height // 4 < faceCenterY < height - height // 4:
-                playAudio("keepStil.mp3")
+    # If User Wants Center
+    if target == "center":
+        if width // 3 < faceCenterX < width - width // 3 and height // 4 < faceCenterY < height - height // 4:
+            playAudio("keepStil.mp3")
+            return True
+        else:
+            if faceCenterX < width // 3:
+                playAudio("moveHeadRight.mp3")
+            elif faceCenterX > width - width // 3:
+                playAudio("moveHeadLeft.mp3")
+            if faceCenterY < height // 4:
+                playAudio("moveHeadDown.mp3")
+            elif faceCenterY > height - height // 4:
+                playAudio("moveHeadUp.mp3")
+
+    # If User Wants A Quadrant
+    else:
+        if target == "top left":
+            if faceCenterX < width // 2 and faceCenterY < height // 2:
+                playAudio("keepStill.mp3")
                 return True
             else:
-                if faceCenterX < width // 3:
-                    playAudio("moveHeadRight.mp3")
-                elif faceCenterX > width - width // 3:
+                if faceCenterX >= width // 2:
                     playAudio("moveHeadLeft.mp3")
-                if faceCenterY < height // 4:
-                    playAudio("moveHeadDown.mp3")
-                elif faceCenterY > height - height // 4:
+                if faceCenterY >= height // 2:
                     playAudio("moveHeadUp.mp3")
-    
-        # If User Wants A Quadrant
-        else:
-            if target == "top left":
-                if faceCenterX < width // 2 and faceCenterY < height // 2:
-                    playAudio("keepStill.mp3")
-                    return True
-                else:
-                    if faceCenterX >= width // 2:
-                        playAudio("moveHeadLeft.mp3")
-                    if faceCenterY >= height // 2:
-                        playAudio("moveHeadUp.mp3")
-            elif target == "top right":
-                if faceCenterX > width //2 and faceCenterY < height // 2:
-                    playAudio("keepStill.mp3")
-                    return True
-                else:
-                    if faceCenterX <= width // 2:
-                        playAudio("moveHeadRight.mp3")
-                    if faceCenterY >= height // 2:
-                        playAudio("moveHeadUp.mp3")
-            elif target == "bottom left":
-                if faceCenterX < width // 2 and faceCenterY > height // 2:
-                    playAudio("keepStill.mp3")
-                    return True
-                else:
-                    if faceCenterX >= width // 2:
-                        playAudio("moveHeadLeft.mp3")
-                    if faceCenterY <= height // 2:
-                        playAudio("moveHeadDown.mp3")
-            elif target == "bottom right":
-                if faceCenterX > width // 2 and faceCenterY > height // 2:
-                    playAudio("keepStill.mp3")
-                    return True
-                else:
-                    if faceCenterX <= width // 2:
-                        playAudio("moveHeadRight.mp3")
-                    if faceCenterY <= height // 2:
-                        playAudio("moveHeadDown.mp3")
-                        
+        elif target == "top right":
+            if faceCenterX > width //2 and faceCenterY < height // 2:
+                playAudio("keepStill.mp3")
+                return True
+            else:
+                if faceCenterX <= width // 2:
+                    playAudio("moveHeadRight.mp3")
+                if faceCenterY >= height // 2:
+                    playAudio("moveHeadUp.mp3")
+        elif target == "bottom left":
+            if faceCenterX < width // 2 and faceCenterY > height // 2:
+                playAudio("keepStill.mp3")
+                return True
+            else:
+                if faceCenterX >= width // 2:
+                    playAudio("moveHeadLeft.mp3")
+                if faceCenterY <= height // 2:
+                    playAudio("moveHeadDown.mp3")
+        elif target == "bottom right":
+            if faceCenterX > width // 2 and faceCenterY > height // 2:
+                playAudio("keepStill.mp3")
+                return True
+            else:
+                if faceCenterX <= width // 2:
+                    playAudio("moveHeadRight.mp3")
+                if faceCenterY <= height // 2:
+                    playAudio("moveHeadDown.mp3")
+                    
     return False
-                
+
+
+# Flag For Prompt To Play 1 Time
+played = False
     
 # Runs the Video Capture
 while True:
@@ -191,38 +205,16 @@ while True:
 
     # Draw quadrants on screen
     video_frame = quadrants(video_frame)
-
+    
+    # Start Prompt
+    if played == False:
+        playAudio("prompt.mp3")
+        played = True    
+    
     # Activeates bounding box while video capture is on
     faces = detect_bounding_box(video_frame)
     cv2.imshow("", video_frame)
         
-    # Start Prompt
-    playAudio("prompt.mp3")
-    selection = userInput()
-        
-    if selection in ["center", "quadrant"]:
-        while True:
-    
-            # Main Action
-            if selection == "center":
-                position = guide("center", video_frame, faces)
-            elif selection == "top left":
-                position = guide("top left", video_frame, faces)
-            elif selection == "top right":
-                position = guide("top right", video_frame, faces)
-            elif selection == "bottom left":
-                position = guide("bottom left", video_frame, faces)
-            elif selection == "bottom right":
-                position = guide("bottom right", video_frame, faces)
-            
-            # Prompt User to Take Picture
-            if position:
-                playAudio("picturePrompt.mp3")
-                confirmation = userInput()
-                if confirmation == "take picture":
-                    screenshot(video_frame)
-                    break
-
     # Press 'q' to end the video capture
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
