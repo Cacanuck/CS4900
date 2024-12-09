@@ -168,6 +168,8 @@ def check_for_object(target_item, target_quadrant):
         if not ret:
             continue
         
+        clean_frame = frame.copy()
+
         results = yolo.track(frame, stream=True)
 
         # draw the quadrants and center box
@@ -226,7 +228,7 @@ def check_for_object(target_item, target_quadrant):
 
         if object_in_right_place:
             if time.time() - start_time >= 8 and not picture_taken:
-                take_picture(frame)
+                take_picture(clean_frame)
                 picture_taken = True
 
         cv2.imshow('frame', frame)
