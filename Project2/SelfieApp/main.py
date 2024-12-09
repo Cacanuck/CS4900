@@ -27,6 +27,9 @@ speechQueue = queue.Queue()
 # Flag to Check if Audio is Playing
 audioPlaying = threading.Event()
 
+# Timer for Detection in Quadrant
+quadTimer = {"start": None, "position": False}
+
 # Face Classifier / Bounding Box code
 def detect_bounding_box(vid, selection):
     gray_image = cv2.cvtColor(vid, cv2.COLOR_BGR2GRAY)
@@ -165,12 +168,27 @@ def guide(target, frame, x,y,w,h):
     faceCenterX = x + w // 2
     faceCenterY = y + h // 2
     height, width, _ = frame.shape
+    global quadTimer
+    
+    # Timer calculation Setup
+    currentTime = time.time()
+    wait = 1.5
+    
+    # Reset Timer
+    def resetTimer():
+        quadTimer["start"] = None
+        quadTimer["position"] = False
         
     # If User Wants Center
     if target == "center":
         if width // 3 < faceCenterX < width - width // 3 and height // 4 < faceCenterY < height - height // 4:
-            return True
+            if quadTimer["start"] is None:
+                quadTimer["start"] = currentTime
+            elif currentTime - quadTimer["start"] >= wait:
+                quadTimer["position"] = True
+                return True
         else:
+            resetTimer()
             if faceCenterX < width // 3:
                 playAudio("moveHeadLeft.mp3")
             elif faceCenterX > width - width // 3:
@@ -184,36 +202,52 @@ def guide(target, frame, x,y,w,h):
     else:
         if target == "top left":
             if faceCenterX < width // 2 and faceCenterY < height // 2:
-                playAudio("keepStill.mp3")
-                return True
+                if quadTimer["start"] is None:
+                    quadTimer["start"] = currentTime
+                elif currentTime - quadTimer["start"] >= wait:
+                    quadTimer["position"] = True
+                    return True
             else:
+                resetTimer()
                 if faceCenterX >= width // 2:
                     playAudio("moveHeadRight.mp3")
                 if faceCenterY >= height // 2:
                     playAudio("moveHeadUp.mp3")
         elif target == "top right":
             if faceCenterX > width //2 and faceCenterY < height // 2:
-                playAudio("keepStill.mp3")
-                return True
+                if quadTimer["start"] is None:
+                    quadTimer["start"] = currentTime
+                elif currentTime - quadTimer["start"] >= wait:
+                    quadTimer["position"] = True
+                    return True
             else:
+                resetTimer()
                 if faceCenterX <= width // 2:
                     playAudio("moveHeadLeft.mp3")
                 if faceCenterY >= height // 2:
                     playAudio("moveHeadUp.mp3")
         elif target == "bottom left":
             if faceCenterX < width // 2 and faceCenterY > height // 2:
-                playAudio("keepStill.mp3")
-                return True
+                if quadTimer["start"] is None:
+                    quadTimer["start"] = currentTime
+                elif currentTime - quadTimer["start"] >= wait:
+                    quadTimer["position"] = True
+                    return True
             else:
+                resetTimer()
                 if faceCenterX >= width // 2:
                     playAudio("moveHeadRight.mp3")
                 if faceCenterY <= height // 2:
                     playAudio("moveHeadDown.mp3")
         elif target == "bottom right":
             if faceCenterX > width // 2 and faceCenterY > height // 2:
-                playAudio("keepStill.mp3")
-                return True
+                if quadTimer["start"] is None:
+                    quadTimer["start"] = currentTime
+                elif currentTime - quadTimer["start"] >= wait:
+                    quadTimer["position"] = True
+                    return True
             else:
+                resetTimer()
                 if faceCenterX <= width // 2:
                     playAudio("moveHeadLeft.mp3")
                 if faceCenterY <= height // 2:
@@ -246,6 +280,7 @@ while True:
     if played == False:
         playAudio("prompt.mp3")
         selection = userInput()
+        print("You Selected: ")
         print(selection)
         played = True    
     
