@@ -7,6 +7,7 @@ import numpy as np
 import speech_recognition as sr
 import threading
 import time
+import queue
 
 from gtts import gTTS
 import pygame
@@ -20,12 +21,21 @@ face_classifier = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_fro
 # Initialize Audio Mixer
 pygame.mixer.init()
 
+# Queue For Speech Thread
+speechQueue = queue.Queue()
+
 # Face Classifier / Bounding Box code
-def detect_bounding_box(vid):
+def detect_bounding_box(vid, selection):
     gray_image = cv2.cvtColor(vid, cv2.COLOR_BGR2GRAY)
     faces = face_classifier.detectMultiScale(gray_image, 1.1, 5, minSize=(40, 4))
     
-    selection = userInput()     
+    # Limit Speech Recognition
+    lastCheck = time.time()
+    interval = 10
+
+    if time.time() - lastCheck > interval:
+        selection
+        lastCheck = time.time()     
 
     for (x, y, w, h) in faces:
         cv2.rectangle(vid, (x, y), (x + w, y + h), (0, 255, 0), 4)
@@ -39,15 +49,16 @@ def detect_bounding_box(vid):
         
         # Prints Face Position
         cv2.putText(vid, f"Position: {combined}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        
+        # Guide User to Selected Area
         if selection in ["center", "top left", "top right", "bottom left", "bottom right"]:
             position = guide(selection, vid, x,y,w,h)
             
             # Prompt User to Take Picture
             if position:
                 playAudio("picturePrompt.mp3")
-                confirmation = userInput()
-                if confirmation == "take picture":
-                    screenshot(video_frame)
+                time.sleep(10)
+                screenshot(video_frame)
         
     return faces
 
@@ -96,9 +107,12 @@ def detectCenterBox(faceCenterX, faceCenterY, width, height):
         return "Not Centered"
     
 # Get User Speech
-def userInput(): #Lag Source
+def userInput():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
+        
+        # Adjust for Ambient Noise
+        recognizer.adjust_for_ambient_noise(source)
         
         # Get Input
         inputAudio = recognizer.listen(source)
@@ -118,6 +132,7 @@ def userInput(): #Lag Source
 # Take Screenshot
 def screenshot(video_frame):
     screenshotPath = "screenshot.jpg"
+    time.sleep(3)
     cv2.imwrite(screenshotPath, video_frame)
     return screenshotPath
 
@@ -126,6 +141,7 @@ def playAudio(file):
     def play():
         pygame.mixer.music.load(file)
         pygame.mixer.music.play()
+        time.sleep(3)
         
     threading.Thread(target=play).start()
     
@@ -138,7 +154,6 @@ def guide(target, frame, x,y,w,h):
     # If User Wants Center
     if target == "center":
         if width // 3 < faceCenterX < width - width // 3 and height // 4 < faceCenterY < height - height // 4:
-            playAudio("keepStil.mp3")
             return True
         else:
             if faceCenterX < width // 3:
@@ -209,10 +224,14 @@ while True:
     # Start Prompt
     if played == False:
         playAudio("prompt.mp3")
+        selection = userInput()
+        print(selection)
         played = True    
     
     # Activeates bounding box while video capture is on
-    faces = detect_bounding_box(video_frame)
+    faces = detect_bounding_box(video_frame, selection)
+    
+    # Display Video
     cv2.imshow("", video_frame)
         
     # Press 'q' to end the video capture
@@ -221,4 +240,5 @@ while True:
 
 # Release Resources
 video_capture.release()
+video_capture = 0
 cv2.destroyAllWindows()
