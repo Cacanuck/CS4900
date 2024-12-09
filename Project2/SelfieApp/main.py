@@ -24,6 +24,9 @@ pygame.mixer.init()
 # Queue For Speech Thread
 speechQueue = queue.Queue()
 
+# Flag to Check if Audio is Playing
+audioPlaying = threading.Event()
+
 # Face Classifier / Bounding Box code
 def detect_bounding_box(vid, selection):
     gray_image = cv2.cvtColor(vid, cv2.COLOR_BGR2GRAY)
@@ -56,9 +59,13 @@ def detect_bounding_box(vid, selection):
             
             # Prompt User to Take Picture
             if position:
-                playAudio("picturePrompt.mp3")
-                time.sleep(10)
+                playAudio("picture.mp3")
+                position = False
+                video_frame = clearLines(original)
                 screenshot(video_frame)
+                video_capture.release()
+                video_capture = 0
+                cv2.destroyAllWindows()
         
     return faces
 
@@ -139,9 +146,17 @@ def screenshot(video_frame):
 # Play an Audio File
 def playAudio(file):
     def play():
+        if audioPlaying.is_set():
+            return
+        
+        audioPlaying.set()
         pygame.mixer.music.load(file)
         pygame.mixer.music.play()
-        time.sleep(3)
+        
+        while pygame.mixer.music.get_busy():
+            time.sleep(0.1)
+            
+        audioPlaying.clear()
         
     threading.Thread(target=play).start()
     
@@ -157,9 +172,9 @@ def guide(target, frame, x,y,w,h):
             return True
         else:
             if faceCenterX < width // 3:
-                playAudio("moveHeadRight.mp3")
-            elif faceCenterX > width - width // 3:
                 playAudio("moveHeadLeft.mp3")
+            elif faceCenterX > width - width // 3:
+                playAudio("moveHeadRight.mp3")
             if faceCenterY < height // 4:
                 playAudio("moveHeadDown.mp3")
             elif faceCenterY > height - height // 4:
@@ -173,7 +188,7 @@ def guide(target, frame, x,y,w,h):
                 return True
             else:
                 if faceCenterX >= width // 2:
-                    playAudio("moveHeadLeft.mp3")
+                    playAudio("moveHeadRight.mp3")
                 if faceCenterY >= height // 2:
                     playAudio("moveHeadUp.mp3")
         elif target == "top right":
@@ -182,7 +197,7 @@ def guide(target, frame, x,y,w,h):
                 return True
             else:
                 if faceCenterX <= width // 2:
-                    playAudio("moveHeadRight.mp3")
+                    playAudio("moveHeadLeft.mp3")
                 if faceCenterY >= height // 2:
                     playAudio("moveHeadUp.mp3")
         elif target == "bottom left":
@@ -191,7 +206,7 @@ def guide(target, frame, x,y,w,h):
                 return True
             else:
                 if faceCenterX >= width // 2:
-                    playAudio("moveHeadLeft.mp3")
+                    playAudio("moveHeadRight.mp3")
                 if faceCenterY <= height // 2:
                     playAudio("moveHeadDown.mp3")
         elif target == "bottom right":
@@ -200,12 +215,15 @@ def guide(target, frame, x,y,w,h):
                 return True
             else:
                 if faceCenterX <= width // 2:
-                    playAudio("moveHeadRight.mp3")
+                    playAudio("moveHeadLeft.mp3")
                 if faceCenterY <= height // 2:
                     playAudio("moveHeadDown.mp3")
                     
     return False
 
+# Clear Grid and Bounding Box Lines
+def clearLines(original):
+    return original
 
 # Flag For Prompt To Play 1 Time
 played = False
@@ -218,6 +236,9 @@ while True:
     if result is False:
         break  
 
+    # Keep Original Frame for Line Deletion
+    original = video_frame.copy()
+    
     # Draw quadrants on screen
     video_frame = quadrants(video_frame)
     
