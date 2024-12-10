@@ -9,7 +9,6 @@ import pygame
 import os
 import speech_recognition as sr
 import time
-import threading
 
 # load the model
 yolo = YOLO('yolov8s.pt')
@@ -121,7 +120,6 @@ def getColours(cls_num):
     return tuple(color)
 
 # function to draw quadrants and center box
-# code from geeksforgeeks object detection with YOLO guide
 def draw_quadrants(frame):
     height, width, _ = frame.shape
     centerX = width // 2
@@ -226,6 +224,7 @@ def check_for_object(target_item, target_quadrant):
                 object_in_right_place = True
                 start_time = time.time()
 
+        # if the object is in the right place, take the picture after a short delay
         if object_in_right_place:
             if time.time() - start_time >= 8 and not picture_taken:
                 take_picture(clean_frame)
